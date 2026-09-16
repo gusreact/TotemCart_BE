@@ -1,0 +1,2 @@
+internal database url: postgresql://admin:q16ip9SjLAWN4AdPrND8b55ureA45h3M@dpg-dal0jglg1s2s73dqij1g-a/totemcartdb
+external database url: postgresql://admin:q16ip9SjLAWN4AdPrND8b55ureA45h3M@dpg-dal0jglg1s2s73dqij1g-a.oregon-postgres.render.com/totemcartdb
