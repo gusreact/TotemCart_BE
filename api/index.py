@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
-app = FastAPI(title="Costanera Food Truck API - PythonAnywhere")
+app = FastAPI(title="TotemCart API")
 
 app.add_middleware(
     CORSMiddleware,
