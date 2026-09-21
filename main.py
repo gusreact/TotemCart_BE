@@ -3,11 +3,20 @@ import io
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 import vercel_blob
 
 app = FastAPI(title="TotemCart API")
 
+# Habilitar CORS para recibir peticiones desde tu app en Vercel y localhost
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En producción podés reemplazar "*" por tu dominio de Vercel
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 # Vercel inyecta automáticamente esta variable al vincular el Blob Store
@@ -92,3 +101,4 @@ async def crear_categoria(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail=f"Error al procesar la solicitud: {str(e)}"
         )
+        
