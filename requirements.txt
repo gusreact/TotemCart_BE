@@ -4,4 +4,6 @@ python-multipart
 pillow
 psycopg2-binary
 vercel-blob
+passlib[bcrypt]
+python-jose[cryptography]
 httpx
