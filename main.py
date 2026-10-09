@@ -42,13 +42,10 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 horas de sesión
 
 # Usa Render en producción y variables locales en desarrollo
-DATABASE_URL = (
-    os.getenv("DATABASE_URL")
-    or os.getenv("LOCAL_DATABASE_URL")
-    or "postgresql://postgres:123456@localhost:5432/totemcart"
-)
+DATABASE_URL = os.getenv("DATABASE_URL")
+
 # Vercel inyecta automáticamente esta variable al vincular el Blob Store
-BLOB_READ_WRITE_TOKEN = os.getenv("BLOB_READ_WRITE_TOKEN") or os.getenv("LOCAL_BLOB_READ_WRITE_TOKEN")
+BLOB_READ_WRITE_TOKEN = os.getenv("BLOB_READ_WRITE_TOKEN")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
