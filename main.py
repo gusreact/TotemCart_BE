@@ -1,20 +1,18 @@
 import os
-import io
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
-import psycopg2
 from dotenv import load_dotenv
-from psycopg2.extras import RealDictCursor
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.responses import FileResponse
+from fastapi.security import OAuth2PasswordRequestForm
 from passlib.context import CryptContext
-from jose import JWTError, jwt
-from PIL import Image
-import vercel_blob
+from jose import jwt
 
 from database import get_db_connection
+from routers.catalog import router as catalog_router
 from routers.users import router as users_router
+from services.security import ALGORITHM, SECRET_KEY, get_current_user
 
 load_dotenv()
 
@@ -26,6 +24,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="TotemCart API", lifespan=lifespan)
 app.include_router(users_router)
+app.include_router(catalog_router)
 
 # Habilitar CORS para recibir peticiones desde tu app en Vercel y localhost
 app.add_middleware(
@@ -37,18 +36,12 @@ app.add_middleware(
 )
 
 # Configuración de Variables de Entorno
-SECRET_KEY = os.getenv("JWT_SECRET") or os.getenv("LOCAL_JWT_SECRET") or "super-secret-key-totem-2026"
-ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 horas de sesión
 
 # Usa Render en producción y variables locales en desarrollo
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Vercel inyecta automáticamente esta variable al vincular el Blob Store
-BLOB_READ_WRITE_TOKEN = os.getenv("BLOB_READ_WRITE_TOKEN")
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 
 def init_db():
@@ -81,6 +74,78 @@ def init_db():
         """
     )
 
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS materias_primas (
+            id SERIAL PRIMARY KEY,
+            nombre VARCHAR(100) NOT NULL,
+            unidad_medida VARCHAR(20) NOT NULL,
+            stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (stock >= 0),
+            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        ALTER TABLE materias_primas
+        ADD COLUMN IF NOT EXISTS stock NUMERIC(10, 2) NOT NULL DEFAULT 0;
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS recetas (
+            id SERIAL PRIMARY KEY,
+            nombre VARCHAR(100) NOT NULL,
+            instrucciones TEXT,
+            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS productos (
+            id SERIAL PRIMARY KEY,
+            categoria_id INT REFERENCES categorias(id) ON DELETE CASCADE,
+            receta_id INT REFERENCES recetas(id) ON DELETE SET NULL,
+            nombre_es VARCHAR(100) NOT NULL,
+            nombre_en VARCHAR(100) NOT NULL,
+            precio NUMERIC(10, 2) NOT NULL,
+            imagen_url VARCHAR(255) NOT NULL,
+            disponible BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS receta_ingredientes (
+            id SERIAL PRIMARY KEY,
+            receta_id INT REFERENCES recetas(id) ON DELETE CASCADE,
+            materia_prima_id INT REFERENCES materias_primas(id) ON DELETE RESTRICT,
+            cantidad NUMERIC(10, 2) NOT NULL,
+            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        DROP INDEX IF EXISTS ux_receta_ingredientes_producto_materia;
+        ALTER TABLE receta_ingredientes DROP COLUMN IF EXISTS producto_id;
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_receta_ingredientes_receta_materia
+        ON receta_ingredientes (receta_id, materia_prima_id);
+        """
+    )
+
     conn.commit()
     cursor.close()
     conn.close()
@@ -101,21 +166,6 @@ def create_access_token(data: dict):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Sesión expirada o token inválido",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        role: str = payload.get("role")
-        if username is None:
-            raise credentials_exception
-        return {"username": username, "role": role}
-    except JWTError:
-        raise credentials_exception
 @app.post("/api/user/create")
 def create_user(username: str = Form(...), password: str = Form(...), nombre: str = Form(...), role: str = Form("user")):
     try:
@@ -167,74 +217,16 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
         "role": user["role"]
     }
 
-@app.post("/api/categorias", status_code=status.HTTP_201_CREATED)
-async def crear_categoria(
-    nombre_es: str = Form(...),
-    nombre_en: str = Form(...),
-    orden: int = Form(1),
-    file: UploadFile = File(...),
-    current_user: str = Depends(get_current_user)  # <- Exige el Token Bearer
-):
-    try:
-        # 1. Leer el archivo cargado en memoria
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
-
-        if image.mode in ("RGBA", "P"):
-            image = image.convert("RGB")
-
-        # 2. Convertir la imagen a formato WebP en un buffer en memoria (BytesIO)
-        buffer = io.BytesIO()
-        image.save(buffer, format="WEBP", quality=80)
-        buffer.seek(0)
-
-        # 3. Definir nombre de archivo y subirlo directamente a Vercel Blob
-        nombre_limpio = nombre_es.lower().replace(" ", "_")
-        filename_webp = f"categorias/cat_{nombre_limpio}.webp"
-
-        # La función put() sube los bytes y retorna los metadatos de la CDN
-        blob_response = vercel_blob.put(
-            filename_webp,
-            buffer.getvalue(),
-            options={
-                "access": "public",
-                "token": BLOB_READ_WRITE_TOKEN
-            }
-        )
-
-        # La URL pública HTTPS generada por Vercel CDN
-        public_url = blob_response.get("url")
-
-        # 4. Guardar el registro con la URL pública en PostgreSQL
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        query = """
-            INSERT INTO categorias (nombre_es, nombre_en, orden, imagen_url)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id, nombre_es, nombre_en, orden, imagen_url, created_at;
-        """
-        cursor.execute(query, (nombre_es, nombre_en, orden, public_url))
-        nueva_categoria = cursor.fetchone()
-        
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        return {
-            "status": "success",
-            "message": f"Categoría creada por el usuario {current_user}",
-            "data": nueva_categoria
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Error al procesar la solicitud: {str(e)}"
-        )
-
 @app.get("/api/admin-only")
 def admin_only(current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="No autorizado")
     return {"message": "Acceso permitido"}
+
+@app.get("/admin", include_in_schema=False)
+def admin_dashboard():
+    dashboard_path = os.path.join(os.path.dirname(__file__), "static", "admin.html")
+    return FileResponse(dashboard_path)
+
+
+
