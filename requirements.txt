@@ -3,7 +3,7 @@ uvicorn[standard]
 python-multipart
 pillow
 psycopg2-binary
-vercel-blob
+vercel_blob==0.4.2
 passlib[bcrypt]
 bcrypt==3.2.2
 python-jose[cryptography]

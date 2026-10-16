@@ -3,7 +3,6 @@ import os
 from decimal import Decimal
 from uuid import uuid4
 
-import vercel_blob
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from PIL import Image, UnidentifiedImageError
 from pydantic import ValidationError
@@ -296,6 +295,14 @@ async def _upload_image(file: UploadFile, folder: str, prefix: str) -> str:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="El almacenamiento de imágenes no está configurado.",
         )
+
+    try:
+        import vercel_blob
+    except ModuleNotFoundError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="La dependencia de almacenamiento de imágenes no está instalada.",
+        ) from error
 
     contents = await file.read()
     try:
