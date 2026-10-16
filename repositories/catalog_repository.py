@@ -13,13 +13,23 @@ RESOURCE_CONFIG = {
     },
     "materias_primas": {
         "table": "materias_primas",
-        "columns": ("nombre", "unidad_medida", "stock"),
+        "columns": ("nombre", "unidad_medida_id", "stock"),
         "id_column": "mp.id",
-        "select": "SELECT mp.* FROM materias_primas mp",
+        "select": """
+            SELECT mp.*, um.medida_es, um.medida_en
+            FROM materias_primas mp
+            JOIN unidades_medida um ON um.id = mp.unidad_medida_id
+        """,
+    },
+    "unidades_medida": {
+        "table": "unidades_medida",
+        "columns": ("medida_es", "medida_en"),
+        "id_column": "um.id",
+        "select": "SELECT um.* FROM unidades_medida um",
     },
     "recetas": {
         "table": "recetas",
-        "columns": ("nombre", "instrucciones"),
+        "columns": ("nombre", "instrucciones_es", "instrucciones_en"),
         "id_column": "r.id",
         "select": "SELECT r.* FROM recetas r",
     },
@@ -31,10 +41,11 @@ RESOURCE_CONFIG = {
             SELECT ri.*,
                    r.nombre AS receta_nombre,
                    mp.nombre AS materia_prima_nombre,
-                   mp.unidad_medida
+                     um.medida_es AS unidad_medida
             FROM receta_ingredientes ri
             LEFT JOIN recetas r ON r.id = ri.receta_id
             LEFT JOIN materias_primas mp ON mp.id = ri.materia_prima_id
+                 LEFT JOIN unidades_medida um ON um.id = mp.unidad_medida_id
         """,
     },
     "productos": {
@@ -98,11 +109,12 @@ class CatalogRepository:
                    r.nombre AS receta_nombre,
                    mp.id,
                    mp.nombre,
-                   mp.unidad_medida,
+                     um.medida_es AS unidad_medida,
                    ri.cantidad
             FROM recetas r
             JOIN receta_ingredientes ri ON ri.receta_id = r.id
             JOIN materias_primas mp ON mp.id = ri.materia_prima_id
+                 JOIN unidades_medida um ON um.id = mp.unidad_medida_id
         """
         values = ()
         if recipe_ids is not None:

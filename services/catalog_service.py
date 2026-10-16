@@ -82,6 +82,11 @@ class CatalogService:
         try:
             return self.repository.create(resource, data)
         except psycopg2.errors.UniqueViolation as error:
+            if resource == "unidades_medida":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Ya existe una unidad de medida con ese nombre en español o inglés.",
+                ) from error
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Esta materia prima ya está asignada a la receta.",
@@ -105,6 +110,11 @@ class CatalogService:
         try:
             return self.repository.update(resource, item_id, data)
         except psycopg2.errors.UniqueViolation as error:
+            if resource == "unidades_medida":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Ya existe una unidad de medida con ese nombre en español o inglés.",
+                ) from error
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Esta materia prima ya está asignada a la receta.",

@@ -25,13 +25,13 @@ class CategoriaOut(CategoriaCreate):
 
 class MateriaPrimaCreate(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=100)
-    unidad_medida: str = Field(..., min_length=1, max_length=20)
+    unidad_medida_id: int = Field(..., gt=0)
     stock: Decimal = Field(default=Decimal("0"), ge=0, max_digits=10, decimal_places=2)
 
 
 class MateriaPrimaUpdate(BaseModel):
     nombre: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    unidad_medida: Optional[str] = Field(default=None, min_length=1, max_length=20)
+    unidad_medida_id: Optional[int] = Field(default=None, gt=0)
     stock: Optional[Decimal] = Field(
         default=None, ge=0, max_digits=10, decimal_places=2
     )
@@ -40,16 +40,35 @@ class MateriaPrimaUpdate(BaseModel):
 class MateriaPrimaOut(MateriaPrimaCreate):
     id: int
     created_at: Optional[datetime] = None
+    medida_es: Optional[str] = None
+    medida_en: Optional[str] = None
+
+
+class UnidadMedidaCreate(BaseModel):
+    medida_es: str = Field(..., min_length=1, max_length=50)
+    medida_en: str = Field(..., min_length=1, max_length=50)
+
+
+class UnidadMedidaUpdate(BaseModel):
+    medida_es: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    medida_en: Optional[str] = Field(default=None, min_length=1, max_length=50)
+
+
+class UnidadMedidaOut(UnidadMedidaCreate):
+    id: int
+    created_at: Optional[datetime] = None
 
 
 class RecetaCreate(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=100)
-    instrucciones: Optional[str] = None
+    instrucciones_es: Optional[str] = None
+    instrucciones_en: Optional[str] = None
 
 
 class RecetaUpdate(BaseModel):
     nombre: Optional[str] = Field(default=None, min_length=1, max_length=100)
-    instrucciones: Optional[str] = None
+    instrucciones_es: Optional[str] = None
+    instrucciones_en: Optional[str] = None
 
 
 class RecetaOut(RecetaCreate):

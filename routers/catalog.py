@@ -25,6 +25,9 @@ from schemas.catalog_schema import (
     RecetaIngredienteOut,
     RecetaOut,
     RecetaUpdate,
+    UnidadMedidaCreate,
+    UnidadMedidaOut,
+    UnidadMedidaUpdate,
 )
 from services.catalog_service import CatalogService
 from services.security import get_current_user
@@ -145,6 +148,52 @@ def update_materia_prima(
 @router.delete("/materias-primas/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_materia_prima(item_id: int, service: CatalogService = Depends()):
     service.delete("materias_primas", item_id)
+
+
+@router.get("/unidades-medida", response_model=list[UnidadMedidaOut])
+def get_unidades_medida(service: CatalogService = Depends()):
+    return service.get_all("unidades_medida")
+
+
+@router.get("/unidades-medida/{item_id}", response_model=UnidadMedidaOut)
+def get_unidad_medida(item_id: int, service: CatalogService = Depends()):
+    return service.get_by_id("unidades_medida", item_id)
+
+
+@router.post(
+    "/unidades-medida",
+    response_model=UnidadMedidaOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_unidad_medida(
+    payload: UnidadMedidaCreate,
+    current_user: dict = Depends(get_current_user),
+    service: CatalogService = Depends(),
+):
+    return service.create("unidades_medida", payload.dict())
+
+
+@router.put("/unidades-medida/{item_id}", response_model=UnidadMedidaOut)
+def update_unidad_medida(
+    item_id: int,
+    payload: UnidadMedidaUpdate,
+    current_user: dict = Depends(get_current_user),
+    service: CatalogService = Depends(),
+):
+    return service.update(
+        "unidades_medida", item_id, payload.dict(exclude_unset=True)
+    )
+
+
+@router.delete(
+    "/unidades-medida/{item_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+def delete_unidad_medida(
+    item_id: int,
+    current_user: dict = Depends(get_current_user),
+    service: CatalogService = Depends(),
+):
+    service.delete("unidades_medida", item_id)
 
 
 @router.get("/recetas", response_model=list[RecetaOut])

@@ -76,13 +76,75 @@ def init_db():
 
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS unidades_medida (
+            id SERIAL PRIMARY KEY,
+            medida_es VARCHAR(50) NOT NULL UNIQUE,
+            medida_en VARCHAR(50) NOT NULL UNIQUE,
+            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+        );
+        """
+    )
+
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS materias_primas (
             id SERIAL PRIMARY KEY,
             nombre VARCHAR(100) NOT NULL,
-            unidad_medida VARCHAR(20) NOT NULL,
+            unidad_medida_id INT NOT NULL REFERENCES unidades_medida(id) ON DELETE RESTRICT,
             stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (stock >= 0),
             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
         );
+        """
+    )
+
+    cursor.execute(
+        """
+        ALTER TABLE materias_primas
+        ADD COLUMN IF NOT EXISTS unidad_medida_id INT REFERENCES unidades_medida(id) ON DELETE RESTRICT;
+        """
+    )
+
+    cursor.execute(
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'materias_primas'
+                  AND column_name = 'unidad_medida'
+            ) THEN
+                INSERT INTO unidades_medida (medida_es, medida_en)
+                SELECT DISTINCT unidad_medida, unidad_medida
+                FROM materias_primas
+                WHERE unidad_medida IS NOT NULL
+                                ON CONFLICT DO NOTHING;
+
+                UPDATE materias_primas mp
+                                SET unidad_medida_id = (
+                                        SELECT um.id
+                                        FROM unidades_medida um
+                                        WHERE um.medida_es = mp.unidad_medida
+                                             OR um.medida_en = mp.unidad_medida
+                                        ORDER BY (um.medida_es = mp.unidad_medida) DESC
+                                        LIMIT 1
+                                )
+                                WHERE mp.unidad_medida_id IS NULL
+                                    AND EXISTS (
+                                        SELECT 1
+                                        FROM unidades_medida um
+                                        WHERE um.medida_es = mp.unidad_medida
+                                             OR um.medida_en = mp.unidad_medida
+                                    );
+            END IF;
+        END $$;
+
+        ALTER TABLE materias_primas
+        ALTER COLUMN unidad_medida_id SET NOT NULL;
+
+        ALTER TABLE materias_primas
+        DROP COLUMN IF EXISTS unidad_medida;
         """
     )
 
@@ -98,9 +160,39 @@ def init_db():
         CREATE TABLE IF NOT EXISTS recetas (
             id SERIAL PRIMARY KEY,
             nombre VARCHAR(100) NOT NULL,
-            instrucciones TEXT,
+            instrucciones_es TEXT,
+            instrucciones_en TEXT,
             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
         );
+        """
+    )
+
+    cursor.execute(
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'recetas'
+                  AND column_name = 'instrucciones'
+            ) AND NOT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'recetas'
+                  AND column_name = 'instrucciones_es'
+            ) THEN
+                ALTER TABLE recetas RENAME COLUMN instrucciones TO instrucciones_es;
+            END IF;
+        END $$;
+
+        ALTER TABLE recetas
+        ADD COLUMN IF NOT EXISTS instrucciones_es TEXT;
+
+        ALTER TABLE recetas
+        ADD COLUMN IF NOT EXISTS instrucciones_en TEXT;
         """
     )
 
