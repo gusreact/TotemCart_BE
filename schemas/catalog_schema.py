@@ -27,12 +27,18 @@ class MateriaPrimaCreate(BaseModel):
     nombre: str = Field(..., min_length=1, max_length=100)
     unidad_medida_id: int = Field(..., gt=0)
     stock: Decimal = Field(default=Decimal("0"), ge=0, max_digits=10, decimal_places=2)
+    stock_min: Decimal = Field(
+        default=Decimal("0"), ge=0, max_digits=10, decimal_places=2
+    )
 
 
 class MateriaPrimaUpdate(BaseModel):
     nombre: Optional[str] = Field(default=None, min_length=1, max_length=100)
     unidad_medida_id: Optional[int] = Field(default=None, gt=0)
     stock: Optional[Decimal] = Field(
+        default=None, ge=0, max_digits=10, decimal_places=2
+    )
+    stock_min: Optional[Decimal] = Field(
         default=None, ge=0, max_digits=10, decimal_places=2
     )
 

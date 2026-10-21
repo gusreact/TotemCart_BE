@@ -11,6 +11,7 @@ from jose import jwt
 
 from database import get_db_connection
 from routers.catalog import router as catalog_router
+from routers.payments import router as payments_router
 from routers.users import router as users_router
 from services.security import ALGORITHM, SECRET_KEY, get_current_user
 
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="TotemCart API", lifespan=lifespan)
 app.include_router(users_router)
 app.include_router(catalog_router)
+app.include_router(payments_router)
 
 # Habilitar CORS para recibir peticiones desde tu app en Vercel y localhost
 app.add_middleware(
@@ -92,6 +94,7 @@ def init_db():
             nombre VARCHAR(100) NOT NULL,
             unidad_medida_id INT NOT NULL REFERENCES unidades_medida(id) ON DELETE RESTRICT,
             stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (stock >= 0),
+            stock_min NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (stock_min >= 0),
             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
         );
         """
@@ -152,6 +155,13 @@ def init_db():
         """
         ALTER TABLE materias_primas
         ADD COLUMN IF NOT EXISTS stock NUMERIC(10, 2) NOT NULL DEFAULT 0;
+        """
+    )
+
+    cursor.execute(
+        """
+        ALTER TABLE materias_primas
+        ADD COLUMN IF NOT EXISTS stock_min NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (stock_min >= 0);
         """
     )
 
@@ -319,6 +329,4 @@ def admin_only(current_user: dict = Depends(get_current_user)):
 def admin_dashboard():
     dashboard_path = os.path.join(os.path.dirname(__file__), "static", "admin.html")
     return FileResponse(dashboard_path)
-
-
 

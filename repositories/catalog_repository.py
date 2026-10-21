@@ -13,7 +13,7 @@ RESOURCE_CONFIG = {
     },
     "materias_primas": {
         "table": "materias_primas",
-        "columns": ("nombre", "unidad_medida_id", "stock"),
+        "columns": ("nombre", "unidad_medida_id", "stock", "stock_min"),
         "id_column": "mp.id",
         "select": """
             SELECT mp.*, um.medida_es, um.medida_en
@@ -155,6 +155,17 @@ class CatalogRepository:
         return self._execute(
             f"{self._select(resource)} WHERE {RESOURCE_CONFIG[resource]['id_column']} = %s;",
             (item_id,),
+        )
+
+    def get_checkout_products(self, product_ids: list[int]):
+        return self._execute(
+            """
+            SELECT id, nombre_es, precio, imagen_url
+            FROM productos
+            WHERE id = ANY(%s) AND COALESCE(disponible, TRUE) = TRUE;
+            """,
+            (product_ids,),
+            fetch="all",
         )
 
     def create(self, resource: str, data: dict):
