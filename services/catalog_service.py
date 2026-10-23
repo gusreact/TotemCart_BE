@@ -24,9 +24,11 @@ class CatalogService:
             recipes[recipe_id]["materias_primas"].append(
                 {
                     "id": row["id"],
-                    "nombre": row["nombre"],
+                    "nombre_es": row["nombre_es"],
+                    "nombre_en": row["nombre_en"],
                     "unidad_medida": row["unidad_medida"],
                     "cantidad": row["cantidad"],
+                    "requerido": row["requerido"],
                 }
             )
         return list(recipes.values())
@@ -144,4 +146,3 @@ class CatalogService:
     def delete_recipe_ingredients(self, recipe_id: int):
         self.get_by_id("recetas", recipe_id)
         self.repository.delete_recipe_ingredients(recipe_id)
-

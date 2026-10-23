@@ -13,7 +13,7 @@ RESOURCE_CONFIG = {
     },
     "materias_primas": {
         "table": "materias_primas",
-        "columns": ("nombre", "unidad_medida_id", "stock", "stock_min"),
+        "columns": ("nombre_es", "nombre_en", "unidad_medida_id", "stock", "stock_min"),
         "id_column": "mp.id",
         "select": """
             SELECT mp.*, um.medida_es, um.medida_en
@@ -35,13 +35,14 @@ RESOURCE_CONFIG = {
     },
     "receta_ingredientes": {
         "table": "receta_ingredientes",
-        "columns": ("receta_id", "materia_prima_id", "cantidad"),
+        "columns": ("receta_id", "materia_prima_id", "cantidad", "requerido"),
         "id_column": "ri.id",
         "select": """
             SELECT ri.*,
                    r.nombre AS receta_nombre,
-                   mp.nombre AS materia_prima_nombre,
-                     um.medida_es AS unidad_medida
+                   mp.nombre_es AS materia_prima_nombre,
+                   mp.nombre_en AS materia_prima_nombre_en,
+                   um.medida_es AS unidad_medida
             FROM receta_ingredientes ri
             LEFT JOIN recetas r ON r.id = ri.receta_id
             LEFT JOIN materias_primas mp ON mp.id = ri.materia_prima_id
@@ -108,9 +109,11 @@ class CatalogRepository:
             SELECT r.id AS receta_id,
                    r.nombre AS receta_nombre,
                    mp.id,
-                   mp.nombre,
-                     um.medida_es AS unidad_medida,
-                   ri.cantidad
+                   mp.nombre_es,
+                   mp.nombre_en,
+                   um.medida_es AS unidad_medida,
+                   ri.cantidad,
+                   ri.requerido
             FROM recetas r
             JOIN receta_ingredientes ri ON ri.receta_id = r.id
             JOIN materias_primas mp ON mp.id = ri.materia_prima_id
@@ -125,25 +128,41 @@ class CatalogRepository:
 
     def save_recipe_ingredients(self, recipes: list[dict], upsert: bool = False):
         values = [
-            (recipe["receta_id"], material["id"], material["cantidad"])
+            (
+                recipe["receta_id"],
+                material["id"],
+                material["cantidad"],
+                material.get("requerido"),
+                material.get("requerido"),
+            )
             for recipe in recipes
             for material in recipe["materias_primas"]
         ]
         query = """
-            INSERT INTO receta_ingredientes (receta_id, materia_prima_id, cantidad)
-            VALUES (%s, %s, %s)
+            INSERT INTO receta_ingredientes (
+                receta_id, materia_prima_id, cantidad, requerido
+            )
+            VALUES (%s, %s, %s, COALESCE(%s, TRUE))
         """
         if upsert:
             query += """
                 ON CONFLICT (receta_id, materia_prima_id)
-                DO UPDATE SET cantidad = EXCLUDED.cantidad
+                DO UPDATE SET
+                    cantidad = EXCLUDED.cantidad,
+                    requerido = CASE
+                        WHEN %s IS NULL THEN receta_ingredientes.requerido
+                        ELSE EXCLUDED.requerido
+                    END
             """
         query += ";"
 
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
-                cursor.executemany(query, values)
+                cursor.executemany(
+                    query,
+                    values if upsert else [value[:4] for value in values],
+                )
             conn.commit()
         except Exception:
             conn.rollback()
@@ -160,11 +179,25 @@ class CatalogRepository:
     def get_checkout_products(self, product_ids: list[int]):
         return self._execute(
             """
-            SELECT id, nombre_es, precio, imagen_url
+            SELECT id, nombre_es, precio, imagen_url, receta_id
             FROM productos
             WHERE id = ANY(%s) AND COALESCE(disponible, TRUE) = TRUE;
             """,
             (product_ids,),
+            fetch="all",
+        )
+
+    def get_checkout_recipe_ingredients(self, recipe_ids: list[int]):
+        if not recipe_ids:
+            return []
+        return self._execute(
+            """
+            SELECT receta_id, materia_prima_id, cantidad, requerido
+            FROM receta_ingredientes
+            WHERE receta_id = ANY(%s)
+            ORDER BY receta_id, materia_prima_id;
+            """,
+            (recipe_ids,),
             fetch="all",
         )
 

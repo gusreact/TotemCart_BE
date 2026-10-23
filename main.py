@@ -91,7 +91,8 @@ def init_db():
         """
         CREATE TABLE IF NOT EXISTS materias_primas (
             id SERIAL PRIMARY KEY,
-            nombre VARCHAR(100) NOT NULL,
+            nombre_es VARCHAR(100) NOT NULL,
+            nombre_en VARCHAR(100) NOT NULL,
             unidad_medida_id INT NOT NULL REFERENCES unidades_medida(id) ON DELETE RESTRICT,
             stock NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (stock >= 0),
             stock_min NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (stock_min >= 0),
@@ -104,6 +105,12 @@ def init_db():
         """
         ALTER TABLE materias_primas
         ADD COLUMN IF NOT EXISTS unidad_medida_id INT REFERENCES unidades_medida(id) ON DELETE RESTRICT;
+
+        ALTER TABLE materias_primas
+        ADD COLUMN IF NOT EXISTS nombre_es VARCHAR(100);
+
+        ALTER TABLE materias_primas
+        ADD COLUMN IF NOT EXISTS nombre_en VARCHAR(100);
         """
     )
 
@@ -148,6 +155,36 @@ def init_db():
 
         ALTER TABLE materias_primas
         DROP COLUMN IF EXISTS unidad_medida;
+        """
+    )
+
+    cursor.execute(
+        """
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'materias_primas'
+                  AND column_name = 'nombre'
+            ) THEN
+                UPDATE materias_primas
+                SET nombre_es = COALESCE(NULLIF(nombre_es, ''), nombre);
+            END IF;
+        END $$;
+
+        UPDATE materias_primas
+        SET nombre_en = COALESCE(NULLIF(nombre_en, ''), nombre_es);
+
+        ALTER TABLE materias_primas
+        ALTER COLUMN nombre_es SET NOT NULL;
+
+        ALTER TABLE materias_primas
+        ALTER COLUMN nombre_en SET NOT NULL;
+
+        ALTER TABLE materias_primas
+        DROP COLUMN IF EXISTS nombre;
         """
     )
 
@@ -229,7 +266,50 @@ def init_db():
             receta_id INT REFERENCES recetas(id) ON DELETE CASCADE,
             materia_prima_id INT REFERENCES materias_primas(id) ON DELETE RESTRICT,
             cantidad NUMERIC(10, 2) NOT NULL,
+            requerido BOOLEAN NOT NULL DEFAULT TRUE,
             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+        );
+        """
+    )
+
+    cursor.execute(
+        """
+        ALTER TABLE receta_ingredientes
+        ADD COLUMN IF NOT EXISTS requerido BOOLEAN NOT NULL DEFAULT TRUE;
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS checkout_orders (
+            id SERIAL PRIMARY KEY,
+            external_reference VARCHAR(36) NOT NULL UNIQUE,
+            preference_id TEXT,
+            total NUMERIC(12, 2) NOT NULL CHECK (total >= 0),
+            currency VARCHAR(3) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending', 'paid')),
+            payment_id TEXT UNIQUE,
+            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+            paid_at TIMESTAMP WITHOUT TIME ZONE
+        );
+
+        CREATE TABLE IF NOT EXISTS checkout_order_items (
+            id SERIAL PRIMARY KEY,
+            order_id INT NOT NULL REFERENCES checkout_orders(id) ON DELETE CASCADE,
+            product_id INT NOT NULL,
+            product_name VARCHAR(100) NOT NULL,
+            quantity INT NOT NULL CHECK (quantity > 0),
+            unit_price NUMERIC(10, 2) NOT NULL CHECK (unit_price >= 0)
+        );
+
+        CREATE TABLE IF NOT EXISTS checkout_order_ingredients (
+            id SERIAL PRIMARY KEY,
+            order_item_id INT NOT NULL
+                REFERENCES checkout_order_items(id) ON DELETE CASCADE,
+            materia_prima_id INT NOT NULL,
+            quantity_per_product NUMERIC(10, 2) NOT NULL
+                CHECK (quantity_per_product > 0)
         );
         """
     )
@@ -329,4 +409,3 @@ def admin_only(current_user: dict = Depends(get_current_user)):
 def admin_dashboard():
     dashboard_path = os.path.join(os.path.dirname(__file__), "static", "admin.html")
     return FileResponse(dashboard_path)
-

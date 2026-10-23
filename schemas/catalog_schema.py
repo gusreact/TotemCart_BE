@@ -24,7 +24,8 @@ class CategoriaOut(CategoriaCreate):
 
 
 class MateriaPrimaCreate(BaseModel):
-    nombre: str = Field(..., min_length=1, max_length=100)
+    nombre_es: str = Field(..., min_length=1, max_length=100)
+    nombre_en: str = Field(..., min_length=1, max_length=100)
     unidad_medida_id: int = Field(..., gt=0)
     stock: Decimal = Field(default=Decimal("0"), ge=0, max_digits=10, decimal_places=2)
     stock_min: Decimal = Field(
@@ -33,7 +34,8 @@ class MateriaPrimaCreate(BaseModel):
 
 
 class MateriaPrimaUpdate(BaseModel):
-    nombre: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    nombre_es: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    nombre_en: Optional[str] = Field(default=None, min_length=1, max_length=100)
     unidad_medida_id: Optional[int] = Field(default=None, gt=0)
     stock: Optional[Decimal] = Field(
         default=None, ge=0, max_digits=10, decimal_places=2
@@ -86,6 +88,7 @@ class RecetaIngredienteCreate(BaseModel):
     receta_id: Optional[int] = Field(default=None, gt=0)
     materia_prima_id: int = Field(..., gt=0)
     cantidad: Decimal = Field(..., gt=0, max_digits=10, decimal_places=2)
+    requerido: bool = True
 
 
 class RecetaIngredienteUpdate(BaseModel):
@@ -94,11 +97,13 @@ class RecetaIngredienteUpdate(BaseModel):
     cantidad: Optional[Decimal] = Field(
         default=None, gt=0, max_digits=10, decimal_places=2
     )
+    requerido: Optional[bool] = None
 
 
 class RecetaIngredienteMateriaPrimaInput(BaseModel):
     id: int = Field(..., gt=0)
     cantidad: Decimal = Field(..., gt=0, max_digits=10, decimal_places=2)
+    requerido: Optional[bool] = None
 
 
 class RecetaIngredientesBulkInput(BaseModel):
@@ -114,14 +119,17 @@ class RecetaIngredienteOut(RecetaIngredienteCreate):
     producto_nombre: Optional[str] = None
     receta_nombre: Optional[str] = None
     materia_prima_nombre: Optional[str] = None
+    materia_prima_nombre_en: Optional[str] = None
     unidad_medida: Optional[str] = None
 
 
 class RecetaMateriaPrimaOut(BaseModel):
     id: int
-    nombre: str
+    nombre_es: str
+    nombre_en: str
     unidad_medida: str
     cantidad: Decimal
+    requerido: bool
 
 
 class RecetaConMateriasPrimasOut(BaseModel):

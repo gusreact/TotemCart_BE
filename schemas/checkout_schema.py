@@ -4,6 +4,7 @@ from pydantic import BaseModel, Field
 class CheckoutItemInput(BaseModel):
     product_id: int = Field(..., gt=0)
     quantity: int = Field(..., gt=0)
+    materia_prima_ids: list[int] = Field(default_factory=list)
 
 
 class CheckoutRequest(BaseModel):
