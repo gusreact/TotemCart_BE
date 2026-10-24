@@ -337,6 +337,24 @@ class PaymentService:
             amount = Decimal(str(payment["transaction_amount"])).quantize(
                 Decimal("0.01")
             )
+            payer = payment.get("payer")
+            if not isinstance(payer, dict):
+                payer = {}
+            identification = payer.get("identification")
+            if not isinstance(identification, dict):
+                identification = {}
+
+            def optional_payer_value(value):
+                if not isinstance(value, str):
+                    return None
+                value = value.strip()
+                return value or None
+
+            payer_first_name = optional_payer_value(payer.get("first_name"))
+            payer_last_name = optional_payer_value(payer.get("last_name"))
+            payer_identification_number = optional_payer_value(
+                identification.get("number")
+            )
         except (ValueError, KeyError, TypeError, InvalidOperation) as error:
             logger.error("Mercado Pago returned an invalid payment response.")
             raise HTTPException(
@@ -367,5 +385,8 @@ class PaymentService:
         recorded = self.payment_repository.record_approved_payment(
             external_reference,
             verified_payment_id,
+            payer_first_name,
+            payer_last_name,
+            payer_identification_number,
         )
         return {"received": True, "processed": recorded}

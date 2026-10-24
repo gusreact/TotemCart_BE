@@ -146,6 +146,7 @@ class ProductoOut(BaseModel):
     nombre_en: str
     precio: Decimal
     imagen_url: str
+    tiempo_preparacion: Optional[int] = Field(default=None, gt=0)
     disponible: Optional[bool] = True
     created_at: Optional[datetime] = None
     categoria_nombre_es: Optional[str] = None
@@ -159,6 +160,7 @@ class ProductoCreate(BaseModel):
     nombre_es: str = Field(..., min_length=1, max_length=100)
     nombre_en: str = Field(..., min_length=1, max_length=100)
     precio: Decimal = Field(..., ge=0, max_digits=10, decimal_places=2)
+    tiempo_preparacion: Optional[int] = Field(default=None, gt=0)
     disponible: bool = True
 
 
@@ -170,4 +172,5 @@ class ProductoUpdate(BaseModel):
     precio: Optional[Decimal] = Field(
         default=None, ge=0, max_digits=10, decimal_places=2
     )
+    tiempo_preparacion: Optional[int] = Field(default=None, gt=0)
     disponible: Optional[bool] = None

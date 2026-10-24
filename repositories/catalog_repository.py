@@ -58,6 +58,7 @@ RESOURCE_CONFIG = {
             "nombre_en",
             "precio",
             "imagen_url",
+            "tiempo_preparacion",
             "disponible",
         ),
         "id_column": "p.id",

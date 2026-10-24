@@ -253,9 +253,17 @@ def init_db():
             nombre_en VARCHAR(100) NOT NULL,
             precio NUMERIC(10, 2) NOT NULL,
             imagen_url VARCHAR(255) NOT NULL,
+            tiempo_preparacion INTEGER,
             disponible BOOLEAN DEFAULT TRUE,
             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
         );
+        """
+    )
+
+    cursor.execute(
+        """
+        ALTER TABLE productos
+        ADD COLUMN IF NOT EXISTS tiempo_preparacion INTEGER;
         """
     )
 
@@ -290,9 +298,21 @@ def init_db():
             status VARCHAR(20) NOT NULL DEFAULT 'pending'
                 CHECK (status IN ('pending', 'paid')),
             payment_id TEXT UNIQUE,
+            payer_first_name VARCHAR(100),
+            payer_last_name VARCHAR(100),
+            payer_identification_number VARCHAR(50),
             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
             paid_at TIMESTAMP WITHOUT TIME ZONE
         );
+
+        ALTER TABLE checkout_orders
+        ADD COLUMN IF NOT EXISTS payer_first_name VARCHAR(100);
+
+        ALTER TABLE checkout_orders
+        ADD COLUMN IF NOT EXISTS payer_last_name VARCHAR(100);
+
+        ALTER TABLE checkout_orders
+        ADD COLUMN IF NOT EXISTS payer_identification_number VARCHAR(50);
 
         CREATE TABLE IF NOT EXISTS checkout_order_items (
             id SERIAL PRIMARY KEY,

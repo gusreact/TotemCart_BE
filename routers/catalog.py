@@ -288,6 +288,24 @@ def _parse_optional_id(value: str | None, field_name: str) -> int | None:
     return parsed_value
 
 
+def _parse_optional_minutes(value: str | None) -> int | None:
+    if value is None or value == "":
+        return None
+    try:
+        parsed_value = int(value)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="tiempo_preparacion debe ser un número entero de minutos.",
+        ) from error
+    if parsed_value <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="tiempo_preparacion debe ser mayor que cero.",
+        )
+    return parsed_value
+
+
 async def _upload_image(file: UploadFile, folder: str, prefix: str) -> str:
     token = os.getenv("BLOB_READ_WRITE_TOKEN")
     if not token:
@@ -357,6 +375,7 @@ async def create_producto(
     nombre_es: str = Form(...),
     nombre_en: str = Form(...),
     precio: Decimal = Form(...),
+    tiempo_preparacion: str | None = Form(None),
     receta_id: str | None = Form(None),
     disponible: bool = Form(True),
     file: UploadFile = File(...),
@@ -369,6 +388,7 @@ async def create_producto(
             nombre_es=nombre_es,
             nombre_en=nombre_en,
             precio=precio,
+            tiempo_preparacion=_parse_optional_minutes(tiempo_preparacion),
             disponible=disponible,
         )
     except ValidationError as error:
@@ -388,6 +408,7 @@ async def update_producto(
     nombre_es: str | None = Form(None),
     nombre_en: str | None = Form(None),
     precio: Decimal | None = Form(None),
+    tiempo_preparacion: str | None = Form(None),
     disponible: bool | None = Form(None),
     file: UploadFile | None = File(None),
     service: CatalogService = Depends(),
@@ -397,6 +418,10 @@ async def update_producto(
         data["categoria_id"] = _parse_optional_id(categoria_id, "categoria_id")
     if receta_id is not None:
         data["receta_id"] = _parse_optional_id(receta_id, "receta_id")
+    if tiempo_preparacion is not None:
+        data["tiempo_preparacion"] = _parse_optional_minutes(
+            tiempo_preparacion
+        )
     for field_name, value in (
         ("nombre_es", nombre_es),
         ("nombre_en", nombre_en),

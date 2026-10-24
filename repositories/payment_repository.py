@@ -116,6 +116,9 @@ class PaymentRepository:
         self,
         external_reference: str,
         payment_id: str,
+        payer_first_name: str | None = None,
+        payer_last_name: str | None = None,
+        payer_identification_number: str | None = None,
     ) -> bool:
         conn = get_db_connection()
         try:
@@ -142,6 +145,25 @@ class PaymentRepository:
                         raise ValueError(
                             "Order was already paid by a different payment."
                         )
+                    cursor.execute(
+                        """
+                        UPDATE checkout_orders
+                        SET payer_first_name = COALESCE(
+                                payer_first_name, %s
+                            ),
+                            payer_last_name = COALESCE(payer_last_name, %s),
+                            payer_identification_number = COALESCE(
+                                payer_identification_number, %s
+                            )
+                        WHERE id = %s;
+                        """,
+                        (
+                            payer_first_name,
+                            payer_last_name,
+                            payer_identification_number,
+                            order_id,
+                        ),
+                    )
                     conn.commit()
                     return True
 
@@ -188,10 +210,19 @@ class PaymentRepository:
                     UPDATE checkout_orders
                     SET status = 'paid',
                         payment_id = %s,
+                        payer_first_name = %s,
+                        payer_last_name = %s,
+                        payer_identification_number = %s,
                         paid_at = NOW()
                     WHERE id = %s AND status = 'pending';
                     """,
-                    (payment_id, order_id),
+                    (
+                        payment_id,
+                        payer_first_name,
+                        payer_last_name,
+                        payer_identification_number,
+                        order_id,
+                    ),
                 )
                 if cursor.rowcount != 1:
                     raise RuntimeError("Checkout order status changed unexpectedly.")
