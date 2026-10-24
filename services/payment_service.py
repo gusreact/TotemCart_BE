@@ -381,7 +381,7 @@ class PaymentService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="El pago aprobado no coincide con la orden.",
             )
-
+        print("process_payment_notification: ",external_reference, verified_payment_id, payer_first_name, payer_last_name, payer_identification_number)
         recorded = self.payment_repository.record_approved_payment(
             external_reference,
             verified_payment_id,

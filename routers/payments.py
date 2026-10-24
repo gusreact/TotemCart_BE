@@ -63,5 +63,5 @@ async def mercadopago_webhook(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="La firma de la notificación de pago no es válida.",
         )
-
+    print(f"Webhook recibido para el pago {payment_id}. Procesando...")
     return await service.process_payment_notification(payment_id)
