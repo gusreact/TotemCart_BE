@@ -287,6 +287,7 @@ class PaymentService:
                 signature_parts[key] = value
         timestamp = signature_parts.get("ts")
         received_signature = signature_parts.get("v1")
+        print(f"verify_webhook_signature: timestamp={timestamp}, received_signature={received_signature}")
         if not timestamp or not received_signature:
             return False
 
@@ -296,6 +297,7 @@ class PaymentService:
             manifest.encode("utf-8"),
             hashlib.sha256,
         ).hexdigest()
+        print(f"verify_webhook_signature: expected_signature={expected_signature}, received_signature={received_signature}")
         return hmac.compare_digest(expected_signature, received_signature)
 
     async def process_payment_notification(self, payment_id: str):
