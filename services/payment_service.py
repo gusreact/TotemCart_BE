@@ -276,6 +276,7 @@ class PaymentService:
         signature: str | None,
     ) -> bool:
         secret = os.getenv("MERCADOPAGO_WEBHOOK_SECRET", "").strip()
+        print(f"verify_webhook_signature: payment_id={payment_id}, request_id={request_id}, signature={signature}, secret={'set' if secret else 'not set'}")
         if not secret or not request_id or not signature:
             return False
 

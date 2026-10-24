@@ -52,7 +52,7 @@ async def mercadopago_webhook(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Falta el identificador del pago en la notificación.",
         )
-
+    print(f"Webhook recibido: event_type={event_type}, payment_id={payment_id}")
     payment_id = str(payment_id)
     if not service.verify_webhook_signature(
         payment_id,
