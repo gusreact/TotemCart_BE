@@ -16,3 +16,4 @@ class CheckoutResponse(BaseModel):
     checkout_url: str
     sandbox_checkout_url: str | None = None
     external_reference: str
+    pedido_codigo: str = Field(..., pattern=r"^[A-Z0-9]{7}$")

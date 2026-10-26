@@ -7,6 +7,7 @@ class PaymentRepository:
     def create_pending_order(
         self,
         external_reference: str,
+        pedido_codigo: str,
         total: Decimal,
         items: list[dict],
     ) -> None:
@@ -16,12 +17,12 @@ class PaymentRepository:
                 cursor.execute(
                     """
                     INSERT INTO checkout_orders (
-                        external_reference, total, currency, status
+                        external_reference, pedido_codigo, total, currency, status
                     )
-                    VALUES (%s, %s, 'ARS', 'pending')
+                    VALUES (%s, %s, %s, 'ARS', 'pending')
                     RETURNING id;
                     """,
-                    (external_reference, total),
+                    (external_reference, pedido_codigo, total),
                 )
                 order_id = cursor.fetchone()["id"]
 
@@ -116,8 +117,6 @@ class PaymentRepository:
         self,
         external_reference: str,
         payment_id: str,
-        payer_first_name: str | None = None,
-        payer_last_name: str | None = None,
         payer_identification_number: str | None = None,
     ) -> bool:
         conn = get_db_connection()
@@ -148,18 +147,12 @@ class PaymentRepository:
                     cursor.execute(
                         """
                         UPDATE checkout_orders
-                        SET payer_first_name = COALESCE(
-                                payer_first_name, %s
-                            ),
-                            payer_last_name = COALESCE(payer_last_name, %s),
-                            payer_identification_number = COALESCE(
+                        SET payer_identification_number = COALESCE(
                                 payer_identification_number, %s
                             )
                         WHERE id = %s;
                         """,
                         (
-                            payer_first_name,
-                            payer_last_name,
                             payer_identification_number,
                             order_id,
                         ),
@@ -210,16 +203,12 @@ class PaymentRepository:
                     UPDATE checkout_orders
                     SET status = 'paid',
                         payment_id = %s,
-                        payer_first_name = %s,
-                        payer_last_name = %s,
                         payer_identification_number = %s,
                         paid_at = NOW()
                     WHERE id = %s AND status = 'pending';
                     """,
                     (
                         payment_id,
-                        payer_first_name,
-                        payer_last_name,
                         payer_identification_number,
                         order_id,
                     ),

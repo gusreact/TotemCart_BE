@@ -292,24 +292,45 @@ def init_db():
         CREATE TABLE IF NOT EXISTS checkout_orders (
             id SERIAL PRIMARY KEY,
             external_reference VARCHAR(36) NOT NULL UNIQUE,
+            pedido_codigo VARCHAR(7),
             preference_id TEXT,
             total NUMERIC(12, 2) NOT NULL CHECK (total >= 0),
             currency VARCHAR(3) NOT NULL,
             status VARCHAR(20) NOT NULL DEFAULT 'pending'
                 CHECK (status IN ('pending', 'paid')),
             payment_id TEXT UNIQUE,
-            payer_first_name VARCHAR(100),
-            payer_last_name VARCHAR(100),
             payer_identification_number VARCHAR(50),
             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
             paid_at TIMESTAMP WITHOUT TIME ZONE
         );
 
         ALTER TABLE checkout_orders
-        ADD COLUMN IF NOT EXISTS payer_first_name VARCHAR(100);
+        ADD COLUMN IF NOT EXISTS pedido_codigo VARCHAR(7);
+
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_checkout_orders_pedido_codigo
+        ON checkout_orders (pedido_codigo);
+
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'ck_checkout_orders_pedido_codigo_format'
+                  AND conrelid = 'checkout_orders'::regclass
+            ) THEN
+                ALTER TABLE checkout_orders
+                ADD CONSTRAINT ck_checkout_orders_pedido_codigo_format
+                CHECK (
+                    pedido_codigo IS NULL
+                    OR pedido_codigo ~ '^[A-Z0-9]{7}$'
+                );
+            END IF;
+        END;
+        $$;
 
         ALTER TABLE checkout_orders
-        ADD COLUMN IF NOT EXISTS payer_last_name VARCHAR(100);
+        DROP COLUMN IF EXISTS payer_first_name,
+        DROP COLUMN IF EXISTS payer_last_name;
 
         ALTER TABLE checkout_orders
         ADD COLUMN IF NOT EXISTS payer_identification_number VARCHAR(50);

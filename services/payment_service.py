@@ -3,11 +3,14 @@ import hmac
 import ipaddress
 import logging
 import os
+import secrets
+import string
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 from urllib.parse import urlparse
 
 import httpx
+from psycopg2.errors import UniqueViolation
 from fastapi import Depends, HTTPException, status
 
 from repositories.catalog_repository import CatalogRepository
@@ -183,11 +186,28 @@ class PaymentService:
             )
 
         external_reference = str(uuid4())
-        self.payment_repository.create_pending_order(
-            external_reference,
-            total,
-            order_items,
-        )
+        code_alphabet = string.ascii_uppercase + string.digits
+        for _ in range(5):
+            pedido_codigo = "".join(
+                secrets.choice(code_alphabet) for _ in range(7)
+            )
+            try:
+                self.payment_repository.create_pending_order(
+                    external_reference,
+                    pedido_codigo,
+                    total,
+                    order_items,
+                )
+                break
+            except UniqueViolation as error:
+                if error.diag.constraint_name != "ux_checkout_orders_pedido_codigo":
+                    raise
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="No se pudo generar un código único para el pedido.",
+            )
+
         if local_payment_simulation:
             local_payment_id = f"local-{external_reference}"
             recorded = self.payment_repository.record_approved_payment(
@@ -204,15 +224,20 @@ class PaymentService:
             )
             return {
                 "preference_id": local_payment_id,
-                "checkout_url": f"{frontend_url}/success",
+                "checkout_url": (
+                    f"{frontend_url}/success?pedido_codigo={pedido_codigo}"
+                ),
                 "sandbox_checkout_url": None,
                 "external_reference": external_reference,
+                "pedido_codigo": pedido_codigo,
             }
 
         preference = {
             "items": preference_items,
             "back_urls": {
-                "success": f"{frontend_url}/success",
+                "success": (
+                    f"{frontend_url}/success?pedido_codigo={pedido_codigo}"
+                ),
                 "failure": f"{frontend_url}/failure",
                 "pending": f"{frontend_url}/pending",
             },
@@ -267,39 +292,8 @@ class PaymentService:
             "checkout_url": checkout_url,
             "sandbox_checkout_url": result.get("sandbox_init_point"),
             "external_reference": external_reference,
+            "pedido_codigo": pedido_codigo,
         }
-
-    @staticmethod
-    def verify_webhook_signature2(
-        payment_id: str,
-        request_id: str | None,
-        signature: str | None,
-    ) -> bool:
-        secret = os.getenv("MERCADOPAGO_WEBHOOK_SECRET", "").strip()
-        print(f"verify_webhook_signature: payment_id={payment_id}, request_id={request_id}, signature={signature}, secret={'set' if secret else 'not set'}")
-        if not secret or not request_id or not signature:
-            return False
-
-        signature_parts = {}
-        for part in signature.split(","):
-            key, separator, value = part.strip().partition("=")
-            if separator:
-                signature_parts[key] = value
-        timestamp = signature_parts.get("ts")
-        received_signature = signature_parts.get("v1")
-        print(f"verify_webhook_signature: timestamp={timestamp}, received_signature={received_signature}")
-        if not timestamp or not received_signature:
-            return False
-
-        manifest = f"id:{payment_id};request-id:{request_id};ts:{timestamp};"
-        expected_signature = hmac.new(
-            secret.encode("utf-8"),
-            manifest.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-        print(f"verify_webhook_signature: expected_signature={expected_signature}, received_signature={received_signature}")
-        return hmac.compare_digest(expected_signature, received_signature)
-
 
     @staticmethod
     def verify_webhook_signature(data_id: str, x_request_id: str, x_signature: str) -> bool:
@@ -379,8 +373,6 @@ class PaymentService:
                 value = value.strip()
                 return value or None
 
-            payer_first_name = optional_payer_value(payer.get("first_name"))
-            payer_last_name = optional_payer_value(payer.get("last_name"))
             payer_identification_number = optional_payer_value(
                 identification.get("number")
             )
@@ -410,12 +402,9 @@ class PaymentService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="El pago aprobado no coincide con la orden.",
             )
-        print("process_payment_notification: ",external_reference, verified_payment_id, payer_first_name, payer_last_name, payer_identification_number)
         recorded = self.payment_repository.record_approved_payment(
             external_reference,
             verified_payment_id,
-            payer_first_name,
-            payer_last_name,
             payer_identification_number,
         )
         return {"received": True, "processed": recorded}
