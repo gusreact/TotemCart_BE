@@ -301,7 +301,7 @@ class PaymentService:
         return hmac.compare_digest(expected_signature, received_signature)
 
 
-
+    @staticmethod
     def verify_webhook_signature(data_id: str, x_request_id: str, x_signature: str,) -> bool:
         secret = os.getenv("MERCADOPAGO_WEBHOOK_SECRET", "").strip()
         if not (data_id and x_request_id and x_signature and secret):
