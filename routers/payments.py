@@ -15,7 +15,7 @@ async def create_checkout(
     return await service.create_checkout(payload)
 
 
-@router.post("/mercadopago/webhook")
+@router.post("/mercadopago/webhook2")
 async def mercadopago_webhook(
     request: Request,
     service: PaymentService = Depends(),
@@ -65,3 +65,38 @@ async def mercadopago_webhook(
         )
     print(f"Webhook recibido para el pago {payment_id}. Procesando...")
     return await service.process_payment_notification(payment_id)
+
+@router.post("/mercadopago/webhook")
+async def mercadopago_webhook(request: Request, service: PaymentService = Depends()):
+    # Parse JSON only if present; signature validation does not depend on the body
+    payload = {}
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict):
+            payload = {}
+    except Exception:
+        payload = {}
+
+    # Detect request type
+    data_id = request.query_params.get("data.id")  # Webhooks
+    topic = request.query_params.get("topic")      # IPN
+    ipn_id = request.query_params.get("id")        # IPN
+
+    x_request_id = request.headers.get("x-request-id")
+    x_signature = request.headers.get("x-signature")
+
+    print(f"Webhook recibido: topic={topic}, data_id={data_id}, ipn_id={ipn_id}, x_request_id={x_request_id}, x_signature={x_signature}")
+    # --- Webhooks path (validate HMAC) ---
+    if data_id and x_request_id and x_signature:
+        if not service.verify_webhook_signature(data_id, x_request_id, x_signature):
+            raise HTTPException(status_code=401, detail="Invalid signature")
+        # process using data_id (it’s the payment id for type=payment)
+        return await service.process_payment_notification(str(data_id))
+
+    # --- IPN path (NO HMAC secret validation) ---
+    if topic in {"payment", "payments"} and ipn_id:
+        # process using ipn_id (payment id)
+        return await service.process_payment_notification(str(ipn_id))
+
+    # Ignore other topics (e.g. merchant_order) or handle them separately
+    return {"received": True, "processed": False}
