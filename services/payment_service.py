@@ -270,7 +270,7 @@ class PaymentService:
         }
 
     @staticmethod
-    def verify_webhook_signature(
+    def verify_webhook_signature2(
         payment_id: str,
         request_id: str | None,
         signature: str | None,
@@ -299,6 +299,32 @@ class PaymentService:
         ).hexdigest()
         print(f"verify_webhook_signature: expected_signature={expected_signature}, received_signature={received_signature}")
         return hmac.compare_digest(expected_signature, received_signature)
+
+
+
+    def verify_webhook_signature(data_id: str, x_request_id: str, x_signature: str) -> bool:
+        secret = os.getenv("MERCADOPAGO_WEBHOOK_SECRET", "").strip()
+        if not (data_id and x_request_id and x_signature and secret):
+            return False
+
+        parts = {}
+        for part in x_signature.split(","):
+            k, _, v = part.strip().partition("=")
+            if _:
+                parts[k] = v
+
+        ts = parts.get("ts")
+        v1 = parts.get("v1")
+        if not (ts and v1):
+            return False
+
+        # Required by docs when data.id is alphanumeric and uppercase
+        if any(c.isalpha() for c in data_id):
+            data_id = data_id.lower()
+
+        manifest = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+        expected = hmac.new(secret.encode(), manifest.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, v1)
 
     async def process_payment_notification(self, payment_id: str):
         access_token = os.getenv("MERCADOPAGO_ACCESS_TOKEN", "").strip()
