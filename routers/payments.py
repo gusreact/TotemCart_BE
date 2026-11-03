@@ -1,6 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import Path
 
-from schemas.checkout_schema import CheckoutRequest, CheckoutResponse
+from schemas.checkout_schema import (
+    CheckoutRequest,
+    CheckoutResponse,
+    CheckoutSaleByCodeOut,
+    CheckoutSaleOut,
+    CheckoutSaleStatusOut,
+    CheckoutSaleStatusUpdate,
+)
+from services.security import require_admin, require_admin_or_cook
 from services.payment_service import PaymentService
 
 
@@ -13,6 +22,39 @@ async def create_checkout(
     service: PaymentService = Depends(),
 ):
     return await service.create_checkout(payload)
+
+
+@router.get("/sales", response_model=list[CheckoutSaleOut])
+def get_sales(
+    current_user: dict = Depends(require_admin_or_cook),
+    service: PaymentService = Depends(),
+):
+    return service.get_sales()
+
+
+@router.get(
+    "/sales/by-code/{pedido_codigo}",
+    response_model=CheckoutSaleByCodeOut,
+)
+def get_sale_by_code(
+    pedido_codigo: str = Path(..., pattern=r"^[A-Z0-9]{7}$"),
+    service: PaymentService = Depends(),
+):
+    return service.get_sale_by_code(pedido_codigo)
+
+
+@router.patch(
+    "/sales/{order_id}/estado",
+    response_model=CheckoutSaleStatusOut,
+)
+def update_sale_state(
+    order_id: int,
+    payload: CheckoutSaleStatusUpdate,
+    current_user: dict = Depends(require_admin_or_cook),
+    service: PaymentService = Depends(),
+):
+    return service.update_sale_state(order_id, payload.pedido_estado_id)
+
 
 @router.post("/mercadopago/webhook")
 async def mercadopago_webhook(request: Request, service: PaymentService = Depends()):

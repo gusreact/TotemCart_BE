@@ -20,13 +20,14 @@ class UserService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El usuario ya existe",
             )
+        self._validate_role(payload.role_id)
 
         password_hash = pwd_context.hash(payload.password)
         return self.repository.create_user(
             username=payload.username,
             password_hash=password_hash,
             nombre=payload.nombre,
-            role=payload.role,
+            role_id=payload.role_id,
         )
 
     def update_user(self, user_id: int, payload: UserUpdate):
@@ -50,8 +51,9 @@ class UserService:
         if payload.nombre is not None:
             update_data["nombre"] = payload.nombre
 
-        if payload.role is not None:
-            update_data["role"] = payload.role
+        if payload.role_id is not None:
+            self._validate_role(payload.role_id)
+            update_data["role_id"] = payload.role_id
 
         if payload.password is not None:
             update_data["password_hash"] = pwd_context.hash(payload.password)
@@ -60,6 +62,13 @@ class UserService:
             return existing_user
 
         return self.repository.update_user(user_id, update_data)
+
+    def _validate_role(self, role_id: int):
+        if not self.repository.role_exists(role_id):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="El rol indicado no existe",
+            )
 
     def delete_user(self, user_id: int):
         existing_user = self.repository.get_by_id(user_id)

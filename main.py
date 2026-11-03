@@ -11,9 +11,15 @@ from jose import jwt
 
 from database import get_db_connection
 from routers.catalog import router as catalog_router
+from routers.pedido_estados import router as pedido_estados_router
 from routers.payments import router as payments_router
+from routers.roles import router as roles_router
 from routers.users import router as users_router
-from services.security import ALGORITHM, SECRET_KEY, get_current_user
+from services.security import (
+    ALGORITHM,
+    SECRET_KEY,
+    require_admin,
+)
 
 load_dotenv()
 
@@ -25,6 +31,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="TotemCart API", lifespan=lifespan)
 app.include_router(users_router)
+app.include_router(roles_router)
+app.include_router(pedido_estados_router)
 app.include_router(catalog_router)
 app.include_router(payments_router)
 
@@ -52,6 +60,30 @@ def init_db():
 
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS roles (
+            id SERIAL PRIMARY KEY,
+            nombre_es VARCHAR(100) NOT NULL,
+            nombre_en VARCHAR(100) NOT NULL,
+            inmutable BOOLEAN NOT NULL DEFAULT FALSE
+        );
+
+        ALTER TABLE roles
+        ADD COLUMN IF NOT EXISTS inmutable BOOLEAN NOT NULL DEFAULT FALSE;
+
+        INSERT INTO roles (id, nombre_es, nombre_en)
+        VALUES
+            (1, 'Administrador', 'Administrator'),
+            (2, 'Cocinero', 'Cook')
+        ON CONFLICT (id) DO NOTHING;
+
+        UPDATE roles SET inmutable = TRUE WHERE id IN (1, 2);
+
+        SELECT setval(
+            pg_get_serial_sequence('roles', 'id'),
+            GREATEST((SELECT MAX(id) FROM roles), 1),
+            TRUE
+        );
+
         CREATE TABLE IF NOT EXISTS categorias (
             id SERIAL PRIMARY KEY,
             nombre_es VARCHAR(255) NOT NULL,
@@ -70,9 +102,52 @@ def init_db():
             username VARCHAR(255) NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
             nombre VARCHAR(255) NOT NULL,
-            role VARCHAR(50) NOT NULL DEFAULT 'user',
+            role_id SMALLINT NOT NULL DEFAULT 2 REFERENCES roles(id),
             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
         );
+
+        ALTER TABLE usuarios
+        ADD COLUMN IF NOT EXISTS role_id SMALLINT;
+
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'usuarios'
+                  AND column_name = 'role'
+            ) THEN
+                UPDATE usuarios
+                SET role_id = CASE
+                    WHEN lower(trim(role)) IN ('admin', '1') THEN 1
+                    ELSE 2
+                END
+                WHERE role_id IS NULL;
+            END IF;
+        END;
+        $$;
+
+        UPDATE usuarios SET role_id = 2 WHERE role_id IS NULL;
+        ALTER TABLE usuarios ALTER COLUMN role_id SET DEFAULT 2;
+        ALTER TABLE usuarios ALTER COLUMN role_id SET NOT NULL;
+
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'usuarios_role_id_fkey'
+                  AND conrelid = 'usuarios'::regclass
+            ) THEN
+                ALTER TABLE usuarios
+                ADD CONSTRAINT usuarios_role_id_fkey
+                FOREIGN KEY (role_id) REFERENCES roles(id);
+            END IF;
+        END;
+        $$;
+
+        ALTER TABLE usuarios DROP COLUMN IF EXISTS role;
         """
     )
 
@@ -289,10 +364,27 @@ def init_db():
 
     cursor.execute(
         """
+        CREATE TABLE IF NOT EXISTS pedido_estado (
+            id SMALLINT PRIMARY KEY CHECK (id BETWEEN 1 AND 5),
+            descripcion_es VARCHAR(50) NOT NULL,
+            descripcion_en VARCHAR(50) NOT NULL
+        );
+
+        INSERT INTO pedido_estado (id, descripcion_es, descripcion_en)
+        VALUES
+            (1, 'Recibido', 'Received'),
+            (2, 'En Preparación', 'In Preparation'),
+            (3, 'Listo para retirar', 'Ready for pickup'),
+            (4, 'Entregado', 'Delivered'),
+            (5, 'Cancelado', 'Cancelled')
+        ON CONFLICT (id) DO NOTHING;
+
         CREATE TABLE IF NOT EXISTS checkout_orders (
             id SERIAL PRIMARY KEY,
             external_reference VARCHAR(36) NOT NULL UNIQUE,
             pedido_codigo VARCHAR(7),
+            pedido_estado_id SMALLINT NOT NULL DEFAULT 1
+                REFERENCES pedido_estado(id),
             preference_id TEXT,
             total NUMERIC(12, 2) NOT NULL CHECK (total >= 0),
             currency VARCHAR(3) NOT NULL,
@@ -301,11 +393,19 @@ def init_db():
             payment_id TEXT UNIQUE,
             payer_identification_number VARCHAR(50),
             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-            paid_at TIMESTAMP WITHOUT TIME ZONE
+            paid_at TIMESTAMP WITHOUT TIME ZONE,
+            preparation_at TIMESTAMP WITHOUT TIME ZONE
         );
 
         ALTER TABLE checkout_orders
         ADD COLUMN IF NOT EXISTS pedido_codigo VARCHAR(7);
+
+        ALTER TABLE checkout_orders
+        ADD COLUMN IF NOT EXISTS pedido_estado_id SMALLINT NOT NULL DEFAULT 1
+            REFERENCES pedido_estado(id);
+
+        ALTER TABLE checkout_orders
+        ADD COLUMN IF NOT EXISTS preparation_at TIMESTAMP WITHOUT TIME ZONE;
 
         CREATE UNIQUE INDEX IF NOT EXISTS ux_checkout_orders_pedido_codigo
         ON checkout_orders (pedido_codigo);
@@ -390,7 +490,11 @@ def create_access_token(data: dict):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 @app.post("/api/user/create")
-def create_user(username: str = Form(...), password: str = Form(...), nombre: str = Form(...), role: str = Form("user")):
+def create_user(
+    username: str = Form(...),
+    password: str = Form(...),
+    nombre: str = Form(...),
+):
     try:
         hashed = pwd_context.hash(password)
 
@@ -399,11 +503,11 @@ def create_user(username: str = Form(...), password: str = Form(...), nombre: st
 
         cursor.execute(
             """
-            INSERT INTO usuarios (username, password_hash, nombre, role)
-            VALUES (%s, %s, %s, %s)
-            RETURNING id, username, nombre, role;
+            INSERT INTO usuarios (username, password_hash, nombre, role_id)
+            VALUES (%s, %s, %s, 2)
+            RETURNING id, username, nombre, role_id;
             """,
-            (username, hashed, nombre, role),
+            (username, hashed, nombre),
         )
 
         user = cursor.fetchone()
@@ -421,7 +525,20 @@ def create_user(username: str = Form(...), password: str = Form(...), nombre: st
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM usuarios WHERE username = %s;", (form_data.username,))
+    cursor.execute(
+        """
+        SELECT usuario.*, rol.nombre_es, rol.nombre_en,
+               CASE usuario.role_id
+                   WHEN 1 THEN 'administrador'
+                   WHEN 2 THEN 'cocinero'
+                   ELSE rol.nombre_es
+               END AS role
+        FROM usuarios AS usuario
+        JOIN roles AS rol ON rol.id = usuario.role_id
+        WHERE usuario.username = %s;
+        """,
+        (form_data.username,),
+    )
     user = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -431,19 +548,26 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
             detail="Usuario o contraseña incorrectos"
         )
 
-    access_token = create_access_token(data={"sub": user["username"], "role": user["role"]})
+    access_token = create_access_token(
+        data={
+            "sub": user["username"],
+            "role_id": user["role_id"],
+            "role": user["role"],
+        }
+    )
     return {
         "access_token": access_token, 
         "token_type": "bearer",
         "username": user["username"],
         "nombre": user["nombre"],
-        "role": user["role"]
+        "role_id": user["role_id"],
+        "role": user["role"],
+        "role_es": user["nombre_es"],
+        "role_en": user["nombre_en"],
     }
 
 @app.get("/api/admin-only")
-def admin_only(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="No autorizado")
+def admin_only(current_user: dict = Depends(require_admin)):
     return {"message": "Acceso permitido"}
 
 @app.get("/admin", include_in_schema=False)

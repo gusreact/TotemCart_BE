@@ -14,6 +14,7 @@ from psycopg2.errors import UniqueViolation
 from fastapi import Depends, HTTPException, status
 
 from repositories.catalog_repository import CatalogRepository
+from repositories.pedido_estado_repository import PedidoEstadoRepository
 from repositories.payment_repository import PaymentRepository
 from schemas.checkout_schema import CheckoutRequest
 
@@ -30,9 +31,37 @@ class PaymentService:
         self,
         repository: CatalogRepository = Depends(),
         payment_repository: PaymentRepository = Depends(),
+        pedido_estado_repository: PedidoEstadoRepository = Depends(),
     ):
         self.repository = repository
         self.payment_repository = payment_repository
+        self.pedido_estado_repository = pedido_estado_repository
+
+    def get_sales(self) -> list[dict]:
+        return self.payment_repository.get_sales()
+
+    def get_sale_by_code(self, pedido_codigo: str) -> dict:
+        sale = self.payment_repository.get_sale_by_code(pedido_codigo)
+        if sale is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pedido no encontrado.",
+            )
+        return sale
+
+    def update_sale_state(self, order_id: int, state_id: int):
+        if self.pedido_estado_repository.get_by_id(state_id) is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="El estado de pedido indicado no existe.",
+            )
+        sale = self.payment_repository.update_sale_state(order_id, state_id)
+        if sale is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pedido no encontrado.",
+            )
+        return sale
 
     @staticmethod
     def _is_loopback_host(hostname: str | None) -> bool:
