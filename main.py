@@ -392,7 +392,8 @@ def init_db():
                 CHECK (status IN ('pending', 'paid')),
             payment_id TEXT UNIQUE,
             payer_identification_number VARCHAR(50),
-            created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+            created_at TIMESTAMP WITHOUT TIME ZONE
+                DEFAULT timezone('America/Argentina/Buenos_Aires', NOW()),
             paid_at TIMESTAMP WITHOUT TIME ZONE,
             preparation_at TIMESTAMP WITHOUT TIME ZONE
         );
@@ -406,6 +407,10 @@ def init_db():
 
         ALTER TABLE checkout_orders
         ADD COLUMN IF NOT EXISTS preparation_at TIMESTAMP WITHOUT TIME ZONE;
+
+        ALTER TABLE checkout_orders
+        ALTER COLUMN created_at SET DEFAULT
+            timezone('America/Argentina/Buenos_Aires', NOW());
 
         CREATE UNIQUE INDEX IF NOT EXISTS ux_checkout_orders_pedido_codigo
         ON checkout_orders (pedido_codigo);

@@ -13,9 +13,10 @@ class PaymentRepository:
                     UPDATE checkout_orders AS sale
                     SET pedido_estado_id = state.id,
                         preparation_at = CASE
-                            WHEN state.id = 2 THEN NOW()
-                            ELSE sale.preparation_at
-                        END
+                        WHEN state.id = 2 THEN
+                            timezone('America/Argentina/Buenos_Aires', NOW())
+                        ELSE sale.preparation_at
+                    END
                     FROM pedido_estado AS state
                     WHERE sale.id = %s
                       AND state.id = %s
@@ -406,7 +407,10 @@ class PaymentRepository:
                     SET status = 'paid',
                         payment_id = %s,
                         payer_identification_number = %s,
-                        paid_at = NOW()
+                        paid_at = timezone(
+                            'America/Argentina/Buenos_Aires',
+                            NOW()
+                        )
                     WHERE id = %s AND status = 'pending';
                     """,
                     (
