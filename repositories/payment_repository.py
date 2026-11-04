@@ -85,7 +85,13 @@ class PaymentRepository:
                       ON ingredient.order_item_id = item.id
                     LEFT JOIN materias_primas AS material
                       ON material.id = ingredient.materia_prima_id
-                    ORDER BY sale.created_at DESC, sale.id DESC,
+                    ORDER BY CASE sale.pedido_estado_id
+                                 WHEN 3 THEN 1
+                                 WHEN 2 THEN 2
+                                 WHEN 1 THEN 3
+                                 ELSE 4
+                             END,
+                             sale.created_at DESC, sale.id DESC,
                              item.id, ingredient.materia_prima_id;
                     """
                 )
@@ -207,6 +213,7 @@ class PaymentRepository:
         external_reference: str,
         pedido_codigo: str,
         total: Decimal,
+        pedido_estado_id: int,
         items: list[dict],
     ) -> None:
         conn = get_db_connection()
@@ -222,10 +229,15 @@ class PaymentRepository:
                         currency,
                         status
                     )
-                    VALUES (%s, %s, 1, %s, 'ARS', 'pending')
+                    VALUES (%s, %s, %s, %s, 'ARS', 'pending')
                     RETURNING id;
                     """,
-                    (external_reference, pedido_codigo, total),
+                    (
+                        external_reference,
+                        pedido_codigo,
+                        pedido_estado_id,
+                        total,
+                    ),
                 )
                 order_id = cursor.fetchone()["id"]
 

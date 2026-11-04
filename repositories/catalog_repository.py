@@ -180,7 +180,13 @@ class CatalogRepository:
     def get_checkout_products(self, product_ids: list[int]):
         return self._execute(
             """
-            SELECT id, nombre_es, precio, imagen_url, receta_id
+            SELECT
+                id,
+                nombre_es,
+                precio,
+                imagen_url,
+                receta_id,
+                tiempo_preparacion
             FROM productos
             WHERE id = ANY(%s) AND COALESCE(disponible, TRUE) = TRUE;
             """,

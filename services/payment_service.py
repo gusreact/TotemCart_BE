@@ -214,6 +214,14 @@ class PaymentService:
                 }
             )
 
+        initial_state_id = (
+            1
+            if any(
+                product["tiempo_preparacion"] is not None
+                for product in products
+            )
+            else 3
+        )
         external_reference = str(uuid4())
         code_alphabet = string.ascii_uppercase + string.digits
         for _ in range(5):
@@ -225,6 +233,7 @@ class PaymentService:
                     external_reference,
                     pedido_codigo,
                     total,
+                    initial_state_id,
                     order_items,
                 )
                 break
