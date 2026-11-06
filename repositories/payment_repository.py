@@ -91,7 +91,7 @@ class PaymentRepository:
                                  WHEN 1 THEN 3
                                  ELSE 4
                              END,
-                             sale.created_at DESC, sale.id DESC,
+                             sale.created_at ASC, sale.id ASC,
                              item.id, ingredient.materia_prima_id;
                     """
                 )

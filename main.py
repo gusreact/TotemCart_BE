@@ -323,6 +323,7 @@ def init_db():
         CREATE TABLE IF NOT EXISTS productos (
             id SERIAL PRIMARY KEY,
             categoria_id INT REFERENCES categorias(id) ON DELETE CASCADE,
+            categoria_sugerida INT REFERENCES categorias(id) ON DELETE SET NULL,
             receta_id INT REFERENCES recetas(id) ON DELETE SET NULL,
             nombre_es VARCHAR(100) NOT NULL,
             nombre_en VARCHAR(100) NOT NULL,
@@ -339,6 +340,14 @@ def init_db():
         """
         ALTER TABLE productos
         ADD COLUMN IF NOT EXISTS tiempo_preparacion INTEGER;
+        """
+    )
+
+    cursor.execute(
+        """
+        ALTER TABLE productos
+        ADD COLUMN IF NOT EXISTS categoria_sugerida INT
+        REFERENCES categorias(id) ON DELETE SET NULL;
         """
     )
 

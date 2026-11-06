@@ -53,6 +53,7 @@ RESOURCE_CONFIG = {
         "table": "productos",
         "columns": (
             "categoria_id",
+            "categoria_sugerida",
             "receta_id",
             "nombre_es",
             "nombre_en",
@@ -65,9 +66,11 @@ RESOURCE_CONFIG = {
         "select": """
             SELECT p.*, c.nombre_es AS categoria_nombre_es,
                    c.nombre_en AS categoria_nombre_en,
+                   cs.nombre_es AS categoria_sugerida_nombre_es,
                    r.nombre AS receta_nombre
             FROM productos p
             LEFT JOIN categorias c ON c.id = p.categoria_id
+            LEFT JOIN categorias cs ON cs.id = p.categoria_sugerida
             LEFT JOIN recetas r ON r.id = p.receta_id
         """,
     },

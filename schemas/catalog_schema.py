@@ -141,6 +141,7 @@ class RecetaConMateriasPrimasOut(BaseModel):
 class ProductoOut(BaseModel):
     id: int
     categoria_id: int
+    categoria_sugerida: Optional[int] = None
     receta_id: Optional[int] = None
     nombre_es: str
     nombre_en: str
@@ -151,11 +152,13 @@ class ProductoOut(BaseModel):
     created_at: Optional[datetime] = None
     categoria_nombre_es: Optional[str] = None
     categoria_nombre_en: Optional[str] = None
+    categoria_sugerida_nombre_es: Optional[str] = None
     receta_nombre: Optional[str] = None
 
 
 class ProductoCreate(BaseModel):
     categoria_id: int = Field(..., gt=0)
+    categoria_sugerida: Optional[int] = Field(default=None, gt=0)
     receta_id: Optional[int] = Field(default=None, gt=0)
     nombre_es: str = Field(..., min_length=1, max_length=100)
     nombre_en: str = Field(..., min_length=1, max_length=100)
@@ -166,6 +169,7 @@ class ProductoCreate(BaseModel):
 
 class ProductoUpdate(BaseModel):
     categoria_id: Optional[int] = Field(default=None, gt=0)
+    categoria_sugerida: Optional[int] = Field(default=None, gt=0)
     receta_id: Optional[int] = Field(default=None, gt=0)
     nombre_es: Optional[str] = Field(default=None, min_length=1, max_length=100)
     nombre_en: Optional[str] = Field(default=None, min_length=1, max_length=100)

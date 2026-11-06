@@ -271,7 +271,7 @@ def delete_receta_ingrediente(receta_id: int, service: CatalogService = Depends(
 def _parse_optional_id(value: str | None, field_name: str) -> int | None:
     if value is None:
         return None
-    if value == "" and field_name == "receta_id":
+    if value == "" and field_name in ("receta_id", "categoria_sugerida"):
         return None
     try:
         parsed_value = int(value)
@@ -372,6 +372,7 @@ def get_producto(item_id: int, service: CatalogService = Depends()):
 )
 async def create_producto(
     categoria_id: int = Form(...),
+    categoria_sugerida: str | None = Form(None),
     nombre_es: str = Form(...),
     nombre_en: str = Form(...),
     precio: Decimal = Form(...),
@@ -384,6 +385,9 @@ async def create_producto(
     try:
         payload = ProductoCreate(
             categoria_id=categoria_id,
+            categoria_sugerida=_parse_optional_id(
+                categoria_sugerida, "categoria_sugerida"
+            ),
             receta_id=_parse_optional_id(receta_id, "receta_id"),
             nombre_es=nombre_es,
             nombre_en=nombre_en,
@@ -404,6 +408,7 @@ async def create_producto(
 async def update_producto(
     item_id: int,
     categoria_id: str | None = Form(None),
+    categoria_sugerida: str | None = Form(None),
     receta_id: str | None = Form(None),
     nombre_es: str | None = Form(None),
     nombre_en: str | None = Form(None),
@@ -416,6 +421,10 @@ async def update_producto(
     data = {}
     if categoria_id is not None:
         data["categoria_id"] = _parse_optional_id(categoria_id, "categoria_id")
+    if categoria_sugerida is not None:
+        data["categoria_sugerida"] = _parse_optional_id(
+            categoria_sugerida, "categoria_sugerida"
+        )
     if receta_id is not None:
         data["receta_id"] = _parse_optional_id(receta_id, "receta_id")
     if tiempo_preparacion is not None:
