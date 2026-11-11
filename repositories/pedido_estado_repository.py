@@ -33,17 +33,17 @@ class PedidoEstadoRepository:
         finally:
             conn.close()
 
-    def create(self, estado_id: int, descripcion_es: str, descripcion_en: str):
+    def create(self, descripcion_es: str, descripcion_en: str):
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO pedido_estado (id, descripcion_es, descripcion_en)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO pedido_estado (descripcion_es, descripcion_en)
+                    VALUES (%s, %s)
                     RETURNING id, descripcion_es, descripcion_en;
                     """,
-                    (estado_id, descripcion_es, descripcion_en),
+                    (descripcion_es, descripcion_en),
                 )
                 estado = cursor.fetchone()
             conn.commit()

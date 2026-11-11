@@ -374,10 +374,21 @@ def init_db():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS pedido_estado (
-            id SMALLINT PRIMARY KEY CHECK (id BETWEEN 1 AND 5),
+            id SMALLSERIAL PRIMARY KEY,
             descripcion_es VARCHAR(50) NOT NULL,
             descripcion_en VARCHAR(50) NOT NULL
         );
+
+        ALTER TABLE pedido_estado
+        DROP CONSTRAINT IF EXISTS pedido_estado_id_check;
+
+        CREATE SEQUENCE IF NOT EXISTS pedido_estado_id_seq AS SMALLINT;
+
+        ALTER SEQUENCE pedido_estado_id_seq
+        OWNED BY pedido_estado.id;
+
+        ALTER TABLE pedido_estado
+        ALTER COLUMN id SET DEFAULT nextval('pedido_estado_id_seq'::regclass);
 
         INSERT INTO pedido_estado (id, descripcion_es, descripcion_en)
         VALUES
@@ -387,6 +398,15 @@ def init_db():
             (4, 'Entregado', 'Delivered'),
             (5, 'Cancelado', 'Cancelled')
         ON CONFLICT (id) DO NOTHING;
+
+        SELECT setval(
+            'pedido_estado_id_seq',
+            GREATEST(
+                (SELECT last_value FROM pedido_estado_id_seq),
+                COALESCE((SELECT MAX(id) FROM pedido_estado), 1)
+            ),
+            TRUE
+        );
 
         CREATE TABLE IF NOT EXISTS checkout_orders (
             id SERIAL PRIMARY KEY,

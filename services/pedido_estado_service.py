@@ -18,7 +18,6 @@ class PedidoEstadoService:
     def create(self, payload: PedidoEstadoCreate):
         try:
             return self.repository.create(
-                payload.id,
                 payload.descripcion_es,
                 payload.descripcion_en,
             )
