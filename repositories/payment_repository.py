@@ -85,6 +85,7 @@ class PaymentRepository:
                       ON ingredient.order_item_id = item.id
                     LEFT JOIN materias_primas AS material
                       ON material.id = ingredient.materia_prima_id
+                    WHERE sale.payment_id IS NOT NULL
                     ORDER BY CASE sale.pedido_estado_id
                                  WHEN 3 THEN 1
                                  WHEN 2 THEN 2
