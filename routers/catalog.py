@@ -64,7 +64,7 @@ async def create_categoria(
     except ValidationError as error:
         raise HTTPException(status_code=422, detail=error.errors()) from error
 
-    data = payload.dict()
+    data = payload.model_dump()
     data["imagen_url"] = await _upload_image(file, "categorias", "cat")
     return service.create("categorias", data)
 
@@ -93,7 +93,7 @@ async def update_categoria(
         payload = CategoriaUpdate(**data)
     except ValidationError as error:
         raise HTTPException(status_code=422, detail=error.errors()) from error
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
 
     if file is not None:
         data["imagen_url"] = await _upload_image(file, "categorias", "cat")
@@ -130,7 +130,7 @@ def get_materia_prima(item_id: int, service: CatalogService = Depends()):
 def create_materia_prima(
     payload: MateriaPrimaCreate, service: CatalogService = Depends()
 ):
-    return service.create("materias_primas", payload.dict())
+    return service.create("materias_primas", payload.model_dump())
 
 
 @router.put("/materias-primas/{item_id}", response_model=MateriaPrimaOut)
@@ -140,7 +140,7 @@ def update_materia_prima(
     service: CatalogService = Depends(),
 ):
     return service.update(
-        "materias_primas", item_id, payload.dict(exclude_unset=True)
+        "materias_primas", item_id, payload.model_dump(exclude_unset=True)
     )
 
 
@@ -169,7 +169,7 @@ def create_unidad_medida(
     current_user: dict = Depends(get_current_user),
     service: CatalogService = Depends(),
 ):
-    return service.create("unidades_medida", payload.dict())
+    return service.create("unidades_medida", payload.model_dump())
 
 
 @router.put("/unidades-medida/{item_id}", response_model=UnidadMedidaOut)
@@ -180,7 +180,7 @@ def update_unidad_medida(
     service: CatalogService = Depends(),
 ):
     return service.update(
-        "unidades_medida", item_id, payload.dict(exclude_unset=True)
+        "unidades_medida", item_id, payload.model_dump(exclude_unset=True)
     )
 
 
@@ -207,14 +207,14 @@ def get_receta(item_id: int, service: CatalogService = Depends()):
 
 @router.post("/recetas", response_model=RecetaOut, status_code=status.HTTP_201_CREATED)
 def create_receta(payload: RecetaCreate, service: CatalogService = Depends()):
-    return service.create("recetas", payload.dict())
+    return service.create("recetas", payload.model_dump())
 
 
 @router.put("/recetas/{item_id}", response_model=RecetaOut)
 def update_receta(
     item_id: int, payload: RecetaUpdate, service: CatalogService = Depends()
 ):
-    return service.update("recetas", item_id, payload.dict(exclude_unset=True))
+    return service.update("recetas", item_id, payload.model_dump(exclude_unset=True))
 
 
 @router.delete("/recetas/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -244,7 +244,7 @@ def create_receta_ingrediente(
     payload: list[RecetaIngredientesBulkInput], service: CatalogService = Depends()
 ):
     return service.save_recipe_ingredients(
-        [recipe.dict() for recipe in payload], upsert=False
+        [recipe.model_dump() for recipe in payload], upsert=False
     )
 
 
@@ -257,7 +257,7 @@ def update_receta_ingrediente(
     service: CatalogService = Depends(),
 ):
     return service.save_recipe_ingredients(
-        [recipe.dict() for recipe in payload], upsert=True
+        [recipe.model_dump() for recipe in payload], upsert=True
     )
 
 
@@ -277,12 +277,12 @@ def _parse_optional_id(value: str | None, field_name: str) -> int | None:
         parsed_value = int(value)
     except ValueError as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"{field_name} debe ser un número entero válido.",
         ) from error
     if parsed_value <= 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"{field_name} debe ser mayor que cero.",
         )
     return parsed_value
@@ -295,12 +295,12 @@ def _parse_optional_minutes(value: str | None) -> int | None:
         parsed_value = int(value)
     except ValueError as error:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="tiempo_preparacion debe ser un número entero de minutos.",
         ) from error
     if parsed_value <= 0:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="tiempo_preparacion debe ser mayor que cero.",
         )
     return parsed_value
@@ -399,7 +399,7 @@ async def create_producto(
         raise HTTPException(status_code=422, detail=error.errors()) from error
 
     image_url = await _upload_image(file, "productos", "prod")
-    data = payload.dict()
+    data = payload.model_dump()
     data["imagen_url"] = image_url
     return service.create("productos", data)
 
@@ -444,7 +444,7 @@ async def update_producto(
         payload = ProductoUpdate(**data)
     except ValidationError as error:
         raise HTTPException(status_code=422, detail=error.errors()) from error
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
 
     if file is not None:
         service.get_by_id("productos", item_id)

@@ -208,6 +208,23 @@ class PaymentRepository:
             ],
         }
 
+    def pedido_codigo_exists(self, pedido_codigo: str) -> bool:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT 1
+                    FROM checkout_orders
+                    WHERE pedido_codigo = %s
+                    LIMIT 1;
+                    """,
+                    (pedido_codigo,),
+                )
+                return cursor.fetchone() is not None
+        finally:
+            conn.close()
+
     def create_pending_order(
         self,
         external_reference: str,

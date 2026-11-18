@@ -40,7 +40,7 @@ class CatalogService:
             recipe_id = recipe["receta_id"]
             if recipe_id in seen_recipe_ids:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="Cada receta debe aparecer una sola vez en la solicitud.",
                 )
             seen_recipe_ids.add(recipe_id)

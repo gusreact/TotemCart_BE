@@ -11,6 +11,7 @@ from jose import jwt
 
 from database import get_db_connection
 from routers.catalog import router as catalog_router
+from routers.configuracion import router as configuracion_router
 from routers.pedido_estados import router as pedido_estados_router
 from routers.payments import router as payments_router
 from routers.roles import router as roles_router
@@ -32,6 +33,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="TotemCart API", lifespan=lifespan)
 app.include_router(users_router)
 app.include_router(roles_router)
+app.include_router(configuracion_router)
 app.include_router(pedido_estados_router)
 app.include_router(catalog_router)
 app.include_router(payments_router)
@@ -92,6 +94,14 @@ def init_db():
             imagen_url TEXT,
             created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
         );
+
+        CREATE TABLE IF NOT EXISTS configuracion (
+            clave TEXT,
+            valor TEXT
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_configuracion_clave
+        ON configuracion (clave);
         """
     )
 

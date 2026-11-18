@@ -24,7 +24,7 @@ class RoleService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Rol no encontrado",
             )
-        values = payload.dict(exclude_unset=True, exclude_none=True)
+        values = payload.model_dump(exclude_unset=True, exclude_none=True)
         if not values:
             return self.repository.get_by_id(role_id)
         return self.repository.update(role_id, values)

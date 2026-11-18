@@ -52,7 +52,7 @@ class PaymentService:
     def update_sale_state(self, order_id: int, state_id: int):
         if self.pedido_estado_repository.get_by_id(state_id) is None:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="El estado de pedido indicado no existe.",
             )
         sale = self.payment_repository.update_sale_state(order_id, state_id)
@@ -121,7 +121,7 @@ class PaymentService:
         products_by_id = {product["id"]: product for product in products}
         if len(products_by_id) != len(product_ids):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="Uno o más productos no existen o no están disponibles.",
             )
 
@@ -150,7 +150,7 @@ class PaymentService:
             selected_ids = checkout_item.materia_prima_ids
             if len(selected_ids) != len(set(selected_ids)):
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="No se puede repetir una materia prima seleccionada.",
                 )
 
@@ -163,12 +163,12 @@ class PaymentService:
             selected_id_set = set(selected_ids)
             if recipe_id is None and selected_id_set:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="No se pueden seleccionar materias primas para un producto sin receta.",
                 )
             if not selected_id_set.issubset(recipe_ingredients_by_id):
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="Una materia prima seleccionada no pertenece a la receta del producto.",
                 )
 
@@ -179,7 +179,7 @@ class PaymentService:
             }
             if not required_ids.issubset(selected_id_set):
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                     detail="La selección debe incluir todas las materias primas requeridas.",
                 )
 
@@ -228,6 +228,8 @@ class PaymentService:
             pedido_codigo = "".join(
                 secrets.choice(code_alphabet) for _ in range(7)
             )
+            if self.payment_repository.pedido_codigo_exists(pedido_codigo):
+                continue
             try:
                 self.payment_repository.create_pending_order(
                     external_reference,

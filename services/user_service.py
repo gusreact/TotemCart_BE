@@ -66,7 +66,7 @@ class UserService:
     def _validate_role(self, role_id: int):
         if not self.repository.role_exists(role_id):
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="El rol indicado no existe",
             )
 

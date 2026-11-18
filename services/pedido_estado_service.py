@@ -33,7 +33,7 @@ class PedidoEstadoService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Estado de pedido no encontrado.",
             )
-        values = payload.dict(exclude_unset=True, exclude_none=True)
+        values = payload.model_dump(exclude_unset=True, exclude_none=True)
         if not values:
             return self.repository.get_by_id(estado_id)
         return self.repository.update(estado_id, values)
