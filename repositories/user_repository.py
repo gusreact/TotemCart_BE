@@ -51,6 +51,17 @@ class UserRepository:
         conn.close()
         return exists
 
+    def has_any_users(self) -> bool:
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT EXISTS (SELECT 1 FROM usuarios) AS has_users;"
+                )
+                return cursor.fetchone()["has_users"]
+        finally:
+            conn.close()
+
     def role_exists(self, role_id: int) -> bool:
         conn = get_db_connection()
         cursor = conn.cursor()

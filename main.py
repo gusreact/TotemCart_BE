@@ -10,6 +10,7 @@ from passlib.context import CryptContext
 from jose import jwt
 
 from database import get_db_connection
+from repositories.user_repository import UserRepository
 from routers.catalog import router as catalog_router
 from routers.configuracion import router as configuracion_router
 from routers.pedido_estados import router as pedido_estados_router
@@ -21,6 +22,8 @@ from services.security import (
     SECRET_KEY,
     require_admin,
 )
+from schemas.user_schema import UserCreate
+from services.user_service import UserService
 
 load_dotenv()
 
@@ -28,6 +31,7 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    ensure_initial_admin()
     yield
 
 app = FastAPI(title="TotemCart API", lifespan=lifespan)
@@ -54,6 +58,27 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 horas de sesión
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def ensure_initial_admin():
+    user_repository = UserRepository()
+    if user_repository.has_any_users():
+        return
+
+    password = os.getenv("INITIAL_ADMIN_PASSWORD")
+    if not password or len(password) < 6:
+        raise RuntimeError(
+            "Set INITIAL_ADMIN_PASSWORD to at least 6 characters before "
+            "starting with an empty usuarios table."
+        )
+
+    payload = UserCreate(
+        username=os.getenv("INITIAL_ADMIN_USERNAME", "admin"),
+        password=password,
+        nombre=os.getenv("INITIAL_ADMIN_NAME", "Administrator"),
+        role_id=1,
+    )
+    UserService(repository=user_repository).create_user(payload)
 
 
 def init_db():
