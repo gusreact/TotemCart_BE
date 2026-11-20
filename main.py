@@ -127,6 +127,14 @@ def init_db():
 
         CREATE UNIQUE INDEX IF NOT EXISTS ux_configuracion_clave
         ON configuracion (clave);
+
+        INSERT INTO configuracion (clave, valor)
+        VALUES ('tiempoRefresco', '30')
+        ON CONFLICT (clave) DO NOTHING;
+
+        INSERT INTO configuracion (clave, valor)
+        VALUES ('modoTotem', 'false')
+        ON CONFLICT (clave) DO NOTHING;
         """
     )
 
